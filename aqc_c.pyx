@@ -11,22 +11,24 @@ cdef extern from "complex.h":
 
 @cdivision
 @boundscheck(False)
-cdef void _aqc_(double[:] Hz, double[:] Hx, double[:] s, double complex[:] psi, double Tmax, long sol, double[:] probs):
-    cdef long len_s = s.shape[0]
+cdef void _aqc_(double[:] Hz, double[:] Hx, double[:] A, double[:] B, \
+                double complex[:] psi, double Tmax, long sol, double[:] probs):
+    cdef long len_A = A.shape[0]
     cdef long i
-    cdef double dt = Tmax/len_s
-    cdef double sval, sval_com
+    cdef double dt = Tmax/len_A
+    cdef double Aval, Bval
 
-    for i in range(len_s):
-        sval = s[i]
-        sval_com = 1.0 - s[i]
-        _zbasis_exp_(Hz, psi, sval*dt)
-        _xbasis_exp_(Hx, psi, sval_com*dt)
-        #print(psi[sol]*conj(psi[sol]))
+    for i in range(len_A):
+        Aval = A[i]
+        Bval = B[i]
+        _zbasis_exp_(Hz, psi, Bval*dt)
+        _xbasis_exp_(Hx, psi, Aval*dt)
         probs[i] = creal(psi[sol]*conj(psi[sol]))
 
 cpdef np.ndarray[np.double_t, ndim=1] aqc(double[:] Hz, double[:] Hx, \
-double[:] s, double complex[:] psi, double Tmax, long sol):
+                                          double[:] A, double[:] B, \
+                                          double complex[:] psi, \
+                                          double Tmax, long sol):
     """
     Performs a QAOA simulation on spins where the driver is diagonal in the
     X-basis and the problem is diagonal in the Z-basis
@@ -38,9 +40,13 @@ double[:] s, double complex[:] psi, double Tmax, long sol):
           (2^n,), where n is the number of spins, containing diag(H*Hx*H) where
           H is a Hadamard on all spins
   
-    s:    A 1-D float NumPy array containing the s(t) values in the Hamiltonian
-          [1-s(t)]Hx + s(t)Hp. This assumes equally-spaced time points and
+    A:    A 1-D float NumPy array containing the A(t) values in the Hamiltonian
+          A(t)Hx + B(t)Hp. This assumes equally-spaced time points and
           implicitly defines the number of time-steps
+
+    B:    A 1-D float NumPy array containing the B(t) values in the Hamiltonian
+          A(t)Hx + B(t)Hp. This assumes equally-spaced time points and must be
+          the same shape as A
   
     psi:  The initial state, given as a 1-D complex NumPy array of shape (2^n,).
           This will be modified in place rather than returned
@@ -54,7 +60,7 @@ double[:] s, double complex[:] psi, double Tmax, long sol):
            if measured at that step
     """
     cdef np.ndarray[np.double_t, ndim=1] probs = \
-    np.empty(s.shape[0], dtype=np.double)
-    _aqc_(Hz, Hx, s, psi, Tmax, sol, probs)
+    np.empty(A.shape[0], dtype=np.double)
+    _aqc_(Hz, Hx, A, B, psi, Tmax, sol, probs)
     return probs
   
